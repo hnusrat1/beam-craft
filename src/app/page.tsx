@@ -4,73 +4,67 @@ import { useState, useCallback } from 'react';
 import ParticleCanvas from '@/components/Canvas/ParticleCanvas';
 import InfoPanel from '@/components/InfoPanel';
 import ChallengePanel from '@/components/ChallengePanel';
-import { TEACHING_POINTS } from '@/lib/physics';
 
 export default function Home() {
   const [detectorDistance, setDetectorDistance] = useState(3);
-  const [completedCount, setCompletedCount] = useState(0);
 
   const handleDetectorMove = useCallback((distance: number) => {
     setDetectorDistance(distance);
   }, []);
 
   const handleChallengeComplete = useCallback(() => {
-    setCompletedCount(c => c + 1);
+    // Could track stats here
   }, []);
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="min-h-screen p-3 md:p-6 lg:p-8">
       {/* Header */}
-      <header className="max-w-6xl mx-auto mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">
+      <header className="max-w-6xl mx-auto mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold">
           <span className="text-amber-400">Inverse²</span> Explorer
         </h1>
-        <p className="text-[var(--foreground-muted)] text-sm">
-          Master the inverse square law through interactive visualization
+        <p className="text-[var(--foreground-muted)] text-xs md:text-sm">
+          Master the inverse square law interactively
         </p>
       </header>
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Panel - Challenges */}
-          <div className="lg:w-80 order-2 lg:order-1">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+
+          {/* Mobile: Canvas + Info stacked */}
+          {/* Desktop: Left sidebar */}
+          <div className="hidden lg:block lg:w-80 order-1">
             <ChallengePanel
               currentDistance={detectorDistance}
               onChallengeComplete={handleChallengeComplete}
             />
           </div>
 
-          {/* Center - Canvas */}
-          <div className="flex-1 flex flex-col items-center order-1 lg:order-2">
+          {/* Center - Canvas + Mobile Info */}
+          <div className="flex-1 order-1 lg:order-2">
             <ParticleCanvas
               detectorDistance={detectorDistance}
               onDetectorMove={handleDetectorMove}
             />
 
-            {/* Teaching Points */}
-            <div className="mt-6 grid grid-cols-2 gap-3 max-w-[500px]">
-              {TEACHING_POINTS.slice(0, 2).map((point, i) => (
-                <div key={i} className="card-dark rounded-lg p-3">
-                  <div className="text-sm font-semibold text-amber-400 mb-1">
-                    {point.title}
-                  </div>
-                  <div className="text-xs text-[var(--foreground-muted)]">
-                    {point.description}
-                  </div>
-                  <div className="text-xs font-mono mt-1 text-[var(--accent)]">
-                    {point.example}
-                  </div>
-                </div>
-              ))}
+            {/* Mobile-only compact info */}
+            <div className="lg:hidden mt-4">
+              <InfoPanel distance={detectorDistance} />
+            </div>
+
+            {/* Teaching tip - mobile only */}
+            <div className="lg:hidden mt-3 card-dark rounded-lg p-3 text-center">
+              <p className="text-xs text-[var(--foreground-muted)]">
+                <span className="text-amber-400 font-semibold">Key Rule:</span> Double the distance = Quarter the intensity
+              </p>
             </div>
           </div>
 
-          {/* Right Panel - Info */}
-          <div className="lg:w-72 order-3">
+          {/* Right Panel - Desktop only */}
+          <div className="hidden lg:block lg:w-72 order-3">
             <InfoPanel distance={detectorDistance} />
 
-            {/* Key Insight Card */}
             <div className="mt-4 card-dark rounded-xl p-4">
               <h3 className="text-sm font-semibold text-amber-400 mb-2">
                 Why This Matters
@@ -78,24 +72,31 @@ export default function Home() {
               <div className="text-sm text-[var(--foreground-muted)] space-y-2">
                 <p>
                   In <strong>brachytherapy</strong>, dose drops incredibly fast near the source.
-                  Moving from 1cm to 2cm cuts dose by 75%!
+                  1cm → 2cm cuts dose by 75%!
                 </p>
                 <p>
-                  For <strong>radiation safety</strong>, every step back from a source
-                  significantly reduces your exposure.
+                  For <strong>radiation safety</strong>, every step back significantly reduces exposure.
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Mobile Challenges - below canvas */}
+          <div className="lg:hidden order-3">
+            <ChallengePanel
+              currentDistance={detectorDistance}
+              onChallengeComplete={handleChallengeComplete}
+            />
+          </div>
         </div>
 
         {/* Footer */}
-        <footer className="mt-8 text-center">
-          <p className="text-sm text-[var(--foreground-muted)]">
-            Drag the blue detector to explore. Complete challenges to master the inverse square law.
+        <footer className="mt-6 lg:mt-8 text-center">
+          <p className="text-xs md:text-sm text-[var(--foreground-muted)]">
+            Drag the blue detector to explore
           </p>
-          <p className="mt-2 text-xs text-[var(--foreground-muted)]/60">
-            I = I₀ / r² — The foundation of radiation physics
+          <p className="mt-1 text-xs text-[var(--foreground-muted)]/50">
+            I = I₀ / r²
           </p>
         </footer>
       </main>

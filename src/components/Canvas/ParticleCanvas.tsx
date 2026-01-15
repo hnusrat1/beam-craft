@@ -6,35 +6,57 @@ import { ParticleSystem, getParticleOpacity } from '@/lib/particles';
 interface ParticleCanvasProps {
   detectorDistance: number;
   onDetectorMove: (distance: number) => void;
-  sourceX?: number;
-  sourceY?: number;
 }
 
-const CANVAS_SIZE = 500;
-const SOURCE_X = CANVAS_SIZE / 2;
-const SOURCE_Y = CANVAS_SIZE / 2;
-const PIXELS_PER_CM = 30;
-const DETECTOR_RADIUS = 20;
+const BASE_CANVAS_SIZE = 400;
+const PIXELS_PER_CM = 24;
+const DETECTOR_RADIUS = 18;
 
 export default function ParticleCanvas({
   detectorDistance,
   onDetectorMove,
 }: ParticleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const particleSystemRef = useRef<ParticleSystem | null>(null);
   const animationRef = useRef<number>(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [detectorAngle, setDetectorAngle] = useState(-Math.PI / 2); // Start at top
+  const [detectorAngle, setDetectorAngle] = useState(-Math.PI / 2);
+  const [canvasSize, setCanvasSize] = useState(BASE_CANVAS_SIZE);
+  const [scale, setScale] = useState(1);
+
+  // Responsive canvas sizing
+  useEffect(() => {
+    const updateSize = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const parentWidth = container.parentElement?.clientWidth || window.innerWidth;
+      const maxSize = Math.min(parentWidth - 32, BASE_CANVAS_SIZE);
+      const newSize = Math.max(280, maxSize);
+      setCanvasSize(newSize);
+      setScale(newSize / BASE_CANVAS_SIZE);
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  const sourceX = canvasSize / 2;
+  const sourceY = canvasSize / 2;
+  const scaledPixelsPerCm = PIXELS_PER_CM * scale;
+  const scaledDetectorRadius = DETECTOR_RADIUS * scale;
 
   // Initialize particle system
   useEffect(() => {
     particleSystemRef.current = new ParticleSystem({
-      sourceX: SOURCE_X,
-      sourceY: SOURCE_Y,
-      emissionRate: 8,
-      particleSpeed: 3,
-      particleLife: 120,
-      particleSize: 3,
+      sourceX: sourceX,
+      sourceY: sourceY,
+      emissionRate: 3,        // Reduced from 8
+      particleSpeed: 2 * scale,
+      particleLife: 100,
+      particleSize: 1.5 * scale,  // Smaller particles
     });
 
     return () => {
@@ -42,16 +64,16 @@ export default function ParticleCanvas({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, []);
+  }, [sourceX, sourceY, scale]);
 
-  // Calculate detector position from distance and angle
+  // Calculate detector position
   const getDetectorPosition = useCallback(() => {
-    const pixelDistance = detectorDistance * PIXELS_PER_CM;
+    const pixelDistance = detectorDistance * scaledPixelsPerCm;
     return {
-      x: SOURCE_X + Math.cos(detectorAngle) * pixelDistance,
-      y: SOURCE_Y + Math.sin(detectorAngle) * pixelDistance,
+      x: sourceX + Math.cos(detectorAngle) * pixelDistance,
+      y: sourceY + Math.sin(detectorAngle) * pixelDistance,
     };
-  }, [detectorDistance, detectorAngle]);
+  }, [detectorDistance, detectorAngle, sourceX, sourceY, scaledPixelsPerCm]);
 
   // Animation loop
   useEffect(() => {
@@ -65,98 +87,104 @@ export default function ParticleCanvas({
       const ps = particleSystemRef.current;
       if (!ps) return;
 
-      const detector = getDetectorPosition();
+      // Update source position for responsive
+      ps.config.sourceX = sourceX;
+      ps.config.sourceY = sourceY;
 
-      // Update particles
-      ps.update(detector.x, detector.y, DETECTOR_RADIUS);
+      const detector = getDetectorPosition();
+      ps.update(detector.x, detector.y, scaledDetectorRadius);
 
       // Clear canvas
       ctx.fillStyle = '#0a0f1a';
-      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-      // Draw distance rings
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.1)';
+      // Draw distance rings (fewer on mobile)
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
       ctx.lineWidth = 1;
-      for (let d = 1; d <= 15; d++) {
+      const ringStep = canvasSize < 350 ? 2 : 1;
+      for (let d = ringStep; d <= 12; d += ringStep) {
         ctx.beginPath();
-        ctx.arc(SOURCE_X, SOURCE_Y, d * PIXELS_PER_CM, 0, Math.PI * 2);
+        ctx.arc(sourceX, sourceY, d * scaledPixelsPerCm, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Distance labels
-        if (d % 2 === 0) {
-          ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
-          ctx.font = '10px system-ui';
-          ctx.fillText(`${d}cm`, SOURCE_X + d * PIXELS_PER_CM + 5, SOURCE_Y - 5);
+        // Distance labels (fewer on mobile)
+        if (d % (canvasSize < 350 ? 4 : 2) === 0) {
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+          ctx.font = `${10 * scale}px system-ui`;
+          ctx.fillText(`${d}`, sourceX + d * scaledPixelsPerCm + 3, sourceY - 3);
         }
       }
 
-      // Draw particles
+      // Draw particles - subtle and small
       for (const particle of ps.particles) {
-        const opacity = getParticleOpacity(particle);
+        const opacity = getParticleOpacity(particle) * 0.6;
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(251, 191, 36, ${opacity * 0.8})`;
+        ctx.fillStyle = `rgba(251, 191, 36, ${opacity})`;
         ctx.fill();
       }
 
-      // Draw source (glowing point)
+      // Draw source (smaller, subtler glow)
+      const glowSize = 20 * scale;
       const sourceGlow = ctx.createRadialGradient(
-        SOURCE_X, SOURCE_Y, 0,
-        SOURCE_X, SOURCE_Y, 30
+        sourceX, sourceY, 0,
+        sourceX, sourceY, glowSize
       );
-      sourceGlow.addColorStop(0, 'rgba(251, 191, 36, 1)');
-      sourceGlow.addColorStop(0.3, 'rgba(251, 191, 36, 0.5)');
+      sourceGlow.addColorStop(0, 'rgba(251, 191, 36, 0.9)');
+      sourceGlow.addColorStop(0.4, 'rgba(251, 191, 36, 0.3)');
       sourceGlow.addColorStop(1, 'rgba(251, 191, 36, 0)');
       ctx.fillStyle = sourceGlow;
       ctx.beginPath();
-      ctx.arc(SOURCE_X, SOURCE_Y, 30, 0, Math.PI * 2);
+      ctx.arc(sourceX, sourceY, glowSize, 0, Math.PI * 2);
       ctx.fill();
 
       // Source center
       ctx.beginPath();
-      ctx.arc(SOURCE_X, SOURCE_Y, 8, 0, Math.PI * 2);
+      ctx.arc(sourceX, sourceY, 5 * scale, 0, Math.PI * 2);
       ctx.fillStyle = '#fbbf24';
       ctx.fill();
 
       // Draw detector
+      const detectorGlowSize = scaledDetectorRadius + 8;
       const detectorGlow = ctx.createRadialGradient(
         detector.x, detector.y, 0,
-        detector.x, detector.y, DETECTOR_RADIUS + 10
+        detector.x, detector.y, detectorGlowSize
       );
-      detectorGlow.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
-      detectorGlow.addColorStop(0.5, 'rgba(59, 130, 246, 0.3)');
+      detectorGlow.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
+      detectorGlow.addColorStop(0.6, 'rgba(59, 130, 246, 0.2)');
       detectorGlow.addColorStop(1, 'rgba(59, 130, 246, 0)');
       ctx.fillStyle = detectorGlow;
       ctx.beginPath();
-      ctx.arc(detector.x, detector.y, DETECTOR_RADIUS + 10, 0, Math.PI * 2);
+      ctx.arc(detector.x, detector.y, detectorGlowSize, 0, Math.PI * 2);
       ctx.fill();
 
       // Detector body
       ctx.beginPath();
-      ctx.arc(detector.x, detector.y, DETECTOR_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = isDragging ? 'rgba(59, 130, 246, 0.9)' : 'rgba(59, 130, 246, 0.7)';
+      ctx.arc(detector.x, detector.y, scaledDetectorRadius, 0, Math.PI * 2);
+      ctx.fillStyle = isDragging ? 'rgba(59, 130, 246, 0.9)' : 'rgba(59, 130, 246, 0.6)';
       ctx.fill();
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 2 * scale;
       ctx.stroke();
 
-      // Detector icon (circle with lines)
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
+      // Detector crosshair
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.5 * scale;
+      const crossSize = 6 * scale;
       ctx.beginPath();
-      ctx.moveTo(detector.x - 8, detector.y);
-      ctx.lineTo(detector.x + 8, detector.y);
-      ctx.moveTo(detector.x, detector.y - 8);
-      ctx.lineTo(detector.x, detector.y + 8);
+      ctx.moveTo(detector.x - crossSize, detector.y);
+      ctx.lineTo(detector.x + crossSize, detector.y);
+      ctx.moveTo(detector.x, detector.y - crossSize);
+      ctx.lineTo(detector.x, detector.y + crossSize);
       ctx.stroke();
 
-      // Draw line from source to detector
+      // Dashed line from source to detector
       ctx.beginPath();
-      ctx.moveTo(SOURCE_X, SOURCE_Y);
+      ctx.moveTo(sourceX, sourceY);
       ctx.lineTo(detector.x, detector.y);
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.25)';
       ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
+      ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
 
@@ -170,68 +198,95 @@ export default function ParticleCanvas({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [getDetectorPosition, isDragging]);
+  }, [getDetectorPosition, isDragging, canvasSize, sourceX, sourceY, scale, scaledPixelsPerCm, scaledDetectorRadius]);
 
-  // Mouse handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Get coordinates from event (mouse or touch)
+  const getEventCoords = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvasSize / rect.width;
+    const scaleY = canvasSize / rect.height;
+
+    if ('touches' in e) {
+      const touch = e.touches[0] || e.changedTouches[0];
+      return {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY,
+      };
+    } else {
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      };
+    }
+  }, [canvasSize]);
+
+  // Start dragging
+  const handleStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const coords = getEventCoords(e);
+    if (!coords) return;
 
     const detector = getDetectorPosition();
-    const dx = x - detector.x;
-    const dy = y - detector.y;
+    const dx = coords.x - detector.x;
+    const dy = coords.y - detector.y;
 
-    if (Math.sqrt(dx * dx + dy * dy) < DETECTOR_RADIUS + 10) {
+    if (Math.sqrt(dx * dx + dy * dy) < scaledDetectorRadius + 15) {
+      e.preventDefault();
       setIsDragging(true);
     }
-  }, [getDetectorPosition]);
+  }, [getDetectorPosition, getEventCoords, scaledDetectorRadius]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  // Move detector
+  const handleMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const coords = getEventCoords(e);
+    if (!coords) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    e.preventDefault();
 
-    // Calculate distance and angle from source
-    const dx = x - SOURCE_X;
-    const dy = y - SOURCE_Y;
+    const dx = coords.x - sourceX;
+    const dy = coords.y - sourceY;
     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
 
-    // Convert to cm and clamp
-    const distanceCm = Math.max(0.5, Math.min(15, pixelDistance / PIXELS_PER_CM));
+    const distanceCm = Math.max(0.5, Math.min(12, pixelDistance / scaledPixelsPerCm));
 
     setDetectorAngle(angle);
     onDetectorMove(distanceCm);
-  }, [isDragging, onDetectorMove]);
+  }, [isDragging, getEventCoords, onDetectorMove, sourceX, sourceY, scaledPixelsPerCm]);
 
-  const handleMouseUp = useCallback(() => {
+  // Stop dragging
+  const handleEnd = useCallback(() => {
     setIsDragging(false);
   }, []);
 
   return (
-    <div className="relative">
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
-        className="rounded-2xl cursor-grab active:cursor-grabbing"
-        style={{ boxShadow: '0 0 60px rgba(251, 191, 36, 0.1), inset 0 0 60px rgba(0, 0, 0, 0.5)' }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      />
-      <div className="absolute bottom-4 left-4 text-xs text-[var(--foreground-muted)] bg-black/50 px-2 py-1 rounded">
-        Drag the detector to explore
+    <div ref={containerRef} className="w-full flex justify-center">
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={canvasSize}
+          height={canvasSize}
+          className="rounded-2xl touch-none"
+          style={{
+            boxShadow: '0 0 40px rgba(251, 191, 36, 0.08), inset 0 0 40px rgba(0, 0, 0, 0.4)',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            maxWidth: '100%',
+          }}
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+          onTouchStart={handleStart}
+          onTouchMove={handleMove}
+          onTouchEnd={handleEnd}
+        />
+        <div className="absolute bottom-3 left-3 text-xs text-[var(--foreground-muted)] bg-black/60 px-2 py-1 rounded">
+          Drag detector to explore
+        </div>
       </div>
     </div>
   );
