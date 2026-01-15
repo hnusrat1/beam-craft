@@ -113,8 +113,9 @@ export function calculateBeamDose(
   const angleRad = (gantryAngle * Math.PI) / 180;
 
   // Unit vector pointing INTO patient (beam direction)
+  // For gantry=0° (beam from superior), beam points toward inferior (+Y)
   const beamDirX = Math.sin(angleRad);
-  const beamDirY = -Math.cos(angleRad);
+  const beamDirY = Math.cos(angleRad);
 
   // Entry point on patient surface (radius = PATIENT_RADIUS_CM)
   const entryX = -PATIENT_RADIUS_CM * beamDirX;
@@ -144,8 +145,8 @@ export function calculateBeamDose(
   // Calculate dose components
   const pdd = calculatePDD(depth, energy);
   const oar = calculateOAR(offAxis, fieldWidth, energy);
-  const isl = calculateISL(depth);
 
-  // Combine factors with beam weight
-  return weight * pdd * oar * isl;
+  // Note: PDD already includes inverse square effects at reference SSD
+  // Do NOT apply additional ISL correction (would double-count)
+  return weight * pdd * oar;
 }

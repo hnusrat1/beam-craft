@@ -48,10 +48,11 @@ export interface Preset {
 }
 
 // Energy parameters for PDD calculation
+// mu values derived from clinical PDD tables: mu = -ln(PDD) / (depth - dmax)
 export const ENERGY_PARAMS: Record<Energy, { dmax: number; mu: number }> = {
-  '6MV': { dmax: 1.5, mu: 0.045 },   // dmax ~1.5cm
-  '10MV': { dmax: 2.5, mu: 0.035 },  // dmax ~2.5cm
-  '18MV': { dmax: 3.5, mu: 0.028 },  // dmax ~3.5cm
+  '6MV': { dmax: 1.5, mu: 0.049 },   // PDD(10cm)~67%, PDD(20cm)~40%
+  '10MV': { dmax: 2.5, mu: 0.044 },  // PDD(10cm)~72%, PDD(20cm)~46%
+  '18MV': { dmax: 3.5, mu: 0.036 },  // PDD(10cm)~79%, PDD(20cm)~54%
 };
 
 // Standard isodose colors (clinical convention)
