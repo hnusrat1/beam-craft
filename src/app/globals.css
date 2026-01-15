@@ -106,35 +106,25 @@ input[type="range"]::-moz-range-thumb {
     inset 0 0 60px rgba(0, 0, 0, 0.3);
 }
 
-/* Isodose color classes */
-.isodose-107 { color: #ff0000; }
-.isodose-100 { color: #ff4500; }
-.isodose-95 { color: #ffa500; }
-.isodose-90 { color: #ffd700; }
-.isodose-80 { color: #ffff00; }
-.isodose-70 { color: #90ee90; }
-.isodose-50 { color: #00ff00; }
-.isodose-30 { color: #00bfff; }
-.isodose-10 { color: #0000ff; }
-
-/* Beam indicator */
-.beam-indicator {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 0 10px currentColor;
+/* Shake animation for wrong answers */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
-.beam-indicator:hover {
-  transform: translate(-50%, -50%) scale(1.3);
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
 }
 
-.beam-indicator.selected {
-  box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+/* Glow pulse for source */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.5); }
+  50% { box-shadow: 0 0 40px rgba(251, 191, 36, 0.8); }
+}
+
+.animate-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
 }
 
 /* Animations */
